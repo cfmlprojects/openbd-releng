@@ -1,0 +1,323 @@
+<!--
+ *  Copyright (C) 2000 - 2012 TagServlet Ltd
+ *
+ *  This file is part of Open BlueDragon (OpenBD) CFML Server Engine.
+ *  
+ *  OpenBD is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  Free Software Foundation,version 3.
+ *  
+ *  OpenBD is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  You should have received a copy of the GNU General Public License
+ *  along with OpenBD.  If not, see http://www.gnu.org/licenses/
+ *  
+ *  Additional permission under GNU GPL version 3 section 7
+ *  
+ *  If you modify this Program, or any covered work, by linking or combining 
+ *  it with any of the JARS listed in the README.txt (or a modified version of 
+ *  (that library), containing parts covered by the terms of that JAR, the 
+ *  licensors of this Program grant you additional permission to convey the 
+ *  resulting work. 
+ *  README.txt @ http://www.openbluedragon.org/license/README.txt
+ *  
+ *  http://openbd.org/
+ *  $Id: build.xml 2322 2013-02-09 16:22:13Z alan $
+-->
+
+<project name="OpenBD" default="compile" basedir="../src/openbd" xmlns:antcontrib="antlib:net.sf.antcontrib">
+
+	<property name="desktoplibroot" location="${temp.dir}/openbdBuild/openbd-desktop-lib"/>
+	<property name="openbd.src" location="../src/openbd"/>
+	<property name="antfiles.dir" location="${openbd.src}/build"/>
+	<property file="${antfiles.dir}/user.properties"/>
+
+	<!-- set global properties for this build -->
+	<property name="build" location="${openbd.src}/build/classes/"/>
+	<property name="src" location="${openbd.src}/src/"/>
+	<property name="docs" location="${openbd.src}/javadoc"/>
+	<property name="dist" location="${dist.dir}"/>
+	<property name="jarpath" location="${openbd.src}/lib/"/>
+	<property name="webinf.jarpath" location="${openbd.src}/webapp/WEB-INF/lib/"/>
+	<property name="resources.dir" location="${openbd.src}/build/resources"/>
+
+	<!-- names for distributed jars -->
+	<property name="bluedragonjar" value="OpenBlueDragon.jar"/>
+	<property name="appletjar" value="bluedragonapplets.jar"/>
+	<property name="cfadapterjar" value="ColdFusionAdapter.jar"/>
+	
+	<property name="dist.bluedragonjar.file" value="${dist}/${bluedragonjar}"/>
+	<property name="dist.appletjar.file" value="${dist}/${appletjar}"/>
+	<property name="dist.cfadapterjar.file" value="${dist}/${cfadapterjar}/"/>
+	<property name="dist.war.file" location="${openbd.src}/build/j2ee/openbd.war"/>
+
+	<property name="desktopjar" 	value="OpenBlueDragonDesktop.jar"/>
+	<property name="downloadfile" 	value="OpenBlueDragonDesktop.zip"/>
+	<property name="dist.desktopjar.file" value="${dist}/${desktopjar}"/>
+	
+	<path id="project.class.path">
+		<fileset dir="${jarpath}"/>
+		<fileset dir="${webinf.jarpath}"/>
+	</path>
+
+
+	<target name="init" description="Initialisation">
+		<tstamp/>
+		<mkdir dir="${build}"/>
+		<mkdir dir="${dist}"/>
+		<mkdir dir="${docs}"/>
+		<mkdir dir="${desktoplibroot}"/>
+		<mkdir dir="${desktoplibroot}/manual/"/>
+		<mkdir dir="${desktoplibroot}/plugins/"/>
+		<mkdir dir="${desktoplibroot}/bluedragon/"/>
+	</target>
+
+	<target name="clean">
+		<delete dir="${build}"/>
+	</target>
+
+
+	<!-- ================================================ -->
+	<!-- COMPILING                                        -->
+	<!-- ================================================ -->
+
+  <target name="compile" depends="init">
+    <!-- Compile the java code from ${src} into ${build} -->
+    <javac-ecj 
+    	srcdir="${src}"
+		destdir="${build}"
+		classpath="${toString:project.class.path}"
+	/>
+  </target>
+
+	<!-- ================================================ -->
+	<!-- JAR FILE CREATION                                -->
+	<!-- ================================================ -->
+
+	<target name="jar" description="Builds the bluedragon jar" depends="compile">
+
+		<property name="includeresources" value="javax/servlet/resources/web-app_2_2.dtd,javax/servlet/resources/web-app_2_3.dtd,META-INF/services/com.naryx.tagfusion.search.DocumentHandler,META-INF/services/com.naryx.tagfusion.search.IndexBuilderFactory,META-INF/services/com.naryx.tagfusion.search.SearcherFactory"/>
+
+		<echo message="Creating bluedragon jar file : ${bluedragonjar}"/>
+
+		<!-- create the openbluedragon.properties file from the existing up, updating the builddate -->
+		<tstamp><format property="builddate" pattern="yyyy-MM-dd HH:mm:ss zzz" timezone="GMT"/></tstamp>
+		<loadproperties srcFile="${src}/openbd.properties"/>
+		<echo message="Building version: ${version}"/>
+		<echo file="${src}/openbd.properties" message="version=${version}${line.separator}state=${state}${line.separator}releasedate=${releasedate}${line.separator}builddate=${builddate}${line.separator}" append="no" />
+
+		<delete file="${dist}/${bluedragonjar}"/>
+
+		<!-- Create the distribution directory -->
+		<manifest file="bluedragonmanifest.mf">
+			<attribute name="build-name" value="Open BlueDragon"/>
+		</manifest>
+
+		<jar jarfile="${dist}/${bluedragonjar}"
+			manifest="bluedragonmanifest.mf"
+			filesonly="true"
+			compress="true">
+			<fileset dir="${build}"
+				excludes="com/bluedragon/browser/**,com/naryx/tagfusion/cfx/HelloColdFusion.class,coldfusion/**/*.class"/>
+			<fileset dir="${resources.dir}" includes="${includeresources}"/>
+    	<fileset dir="${src}" includes="openbd.properties"/>
+    	<fileset dir="${src}" includes="**/*.js"/>
+    	<fileset dir="${src}" includes="**/*.txt"/>
+    	<fileset dir="${src}" includes="**/*.properties"/>
+		</jar>
+
+		<delete file="bluedragonmanifest.mf"/>
+		<echo message="Completed jar creation."/>
+	</target>
+
+  <target name="cfxjar" depends="compile" description="Builds the cfx jar">
+	<delete file="${dist}/cfx.jar"/>
+    <jar 	jarfile="${dist}/cfx.jar"
+			basedir="${build}"
+			filesonly="true"
+			includes="com/allaire/**"
+			compress="true"/>
+  </target>
+
+  <target name="formcontrolsjar"  depends="compile" description="Builds the form controls jar">
+   	<delete file="${dist}/${appletjar}"/>
+
+    <copy todir="${build}com/bluedragon/browser" verbose="false">
+      <fileset dir="${src}/com/bluedragon/browser/" includes="*.xml"/>
+      <fileset dir="${src}/com/bluedragon/browser/" includes="*.gif"/>
+    </copy>
+
+    <jar  jarfile="${dist}/${appletjar}"
+   		basedir="${build}"
+   		filesonly="true"
+   		includes="com/bluedragon/browser/*.xml,com/bluedragon/browser/*.gif,com/bluedragon/browser/*.class,com/bluedragon/browser/thinlet/*.class,com/nary/net/Base64.class,com/nary/util/stringtokenizer.class,com/nary/util/StringWriter.class"
+   		compress="true"/>
+  </target>
+
+  <target name="cfadapterjar"  depends="compile" description="Builds the Coldfusion adapter jar">
+   	<delete file="${dist.cfadapterjar.file}"/>
+
+    <jar  jarfile="${dist.cfadapterjar.file}"
+   		basedir="${build}"
+   		filesonly="true"
+   		includes="coldfusion/**/*.class"
+   		compress="true"/>
+  </target>
+
+	<!-- ================================================ -->
+	<!-- JAVACC targets                                   -->
+	<!-- qoq, expression and cfscript engine targets      -->
+	<!-- ================================================ -->
+
+	<property name="javacchome" location="${basedir}/resource/javacc"/>
+		
+	<target name="javacccfscript">
+		<!-- Produce the java classes for the cfscript .jj file -->
+		<javacc
+			target="${src}/com/naryx/tagfusion/cfm/script/cfParser.jj"
+			javacchome="${javacchome}"
+			outputdirectory="${src}/com/naryx/tagfusion/cfm/script"
+			ignorecase="true"/>
+		<echo message="Remember to replace 'enum' references with 'enumer'"/>
+	</target>
+
+	<target name="javaccexpressionengine">
+		<!-- Produce the java classes for the cfscript .jj file -->
+		<javacc
+			target="${src}/com/naryx/tagfusion/expression/compile/expressionParser.jj"
+			javacchome="${javacchome}"
+			outputdirectory="${src}/com/naryx/tagfusion/expression/compile"
+			ignorecase="true"/>
+		<echo message="Remember to replace 'enum' references with 'enumer'"/>
+	</target>
+
+	<target name="javaccqoq">
+		<!-- Produce the java classes for the cfscript .jj file -->
+		<javacc
+			target="${src}/com/naryx/tagfusion/cfm/queryofqueries/selectsql.jj"
+			javacchome="${javacchome}"
+			outputdirectory="${src}/com/naryx/tagfusion/cfm/queryofqueries"
+			ignorecase="true"/>
+  	<echo message="Remember to replace 'enum' references with 'enumer'"/>
+	</target>
+
+	<!-- ================================================ -->
+	<!-- War deployment                                   -->
+	<!-- ================================================ -->
+
+	<target name="war" depends="jar,formcontrolsjar">
+
+		<!-- documents -->
+		<copy todir="${openbd.src}/build/j2ee">
+			<fileset dir="${openbd.src}/build">
+				<include name="COPYING.txt"/>
+			</fileset>
+			<fileset dir="${openbd.src}/docs">
+				<include name="ReleaseNotes.txt"/>
+				<include name="Solaris_C++_CFX_ReadMe.txt"/>
+			</fileset>
+		</copy>
+
+		<!-- webapp/bluedragon subdirectories -->
+		<mkdir dir="${openbd.src}/build/j2ee/webapp/bluedragon/jars"/>
+		<copy file="${dist}/bluedragonapplets.jar" todir="${openbd.src}/build/j2ee/webapp/bluedragon/jars"/>
+
+		<mkdir dir="${openbd.src}/build/j2ee/webapp/bluedragon/scripts"/>
+		<copy file="${openbd.src}/webapp/bluedragon/scripts/cfform.js" todir="${openbd.src}/build/j2ee/webapp/bluedragon/scripts"/>
+		<copy file="${openbd.src}/webapp/bluedragon/scripts/mask.js" todir="${openbd.src}/build/j2ee/webapp/bluedragon/scripts"/>
+		<copy file="${openbd.src}/webapp/bluedragon/scripts/wddx.js" todir="${openbd.src}/build/j2ee/webapp/bluedragon/scripts"/>
+
+		<!-- copy cfm pages -->
+		<copy file="${openbd.src}/webapp/index.cfm" todir="${openbd.src}/build/j2ee/webapp/"/>
+		<copy todir="${openbd.src}/build/j2ee/webapp/manual">
+			<fileset dir="${openbd.src}/webapp/manual"/>
+		</copy>
+		
+		<!-- WEB_INF/bluedragon -->
+		<copy file="${openbd.src}/COPYING.txt" todir="${openbd.src}/build/j2ee/webapp/WEB-INF/bluedragon"/>
+
+		<!-- WEB-INF/bin -->
+		<copy todir="${openbd.src}/build/j2ee/webapp/WEB-INF/bin">
+			<fileset dir="${openbd.src}/webapp/WEB-INF/bin">
+				<include name="*.dll"/>
+				<include name="*.so"/>
+				<exclude name="BlueDragonHello.dll"/>
+			</fileset>
+		</copy>
+
+		<!-- WEB-INF/bin/x64 -->
+		<copy todir="${openbd.src}/build/j2ee/webapp/WEB-INF/bin/x64">
+			<fileset dir="${openbd.src}/webapp/WEB-INF/bin/x64">
+				<include name="*.dll"/>
+				<include name="*.so"/>
+				<exclude name="BlueDragonHello.dll"/>
+				<exclude name="BlueDragonHello-linux.so"/>
+				<exclude name="CFX_TestTag.dll"/>
+			</fileset>
+		</copy>
+
+		<!-- WEB-INF/lib -->
+		<mkdir dir="${openbd.src}/build/j2ee/webapp/WEB-INF/lib"/>
+		<copy todir="${openbd.src}/build/j2ee/webapp/WEB-INF/lib">
+			<fileset dir="${openbd.src}/webapp/WEB-INF/lib">
+				<include name="*.jar"/>
+				<include name="README.txt"/>
+			</fileset>
+		</copy>
+		<copy file="${dist.bluedragonjar.file}" todir="${openbd.src}/build/j2ee/webapp/WEB-INF/lib"/>
+		<copy file="${dist.cfadapterjar.file}" todir="${openbd.src}/build/j2ee/webapp/WEB-INF/lib"/>
+
+		<mkdir dir="${openbd.src}/build/j2ee/webapp/WEB-INF/webresources"/>
+		<copy todir="${openbd.src}/build/j2ee/webapp/WEB-INF/webresources">
+			<fileset dir="${openbd.src}/webapp/WEB-INF/webresources"/>
+		</copy>
+
+		<!-- Take a note of the file list -->
+		<echo message="Copying JAR files for desktop launcher" />
+		<fileset id="jarfiles" dir="${openbd.src}/build/j2ee/webapp/WEB-INF/lib/"><include name="*.jar"/></fileset>
+		<pathconvert pathsep="${line.separator}" property="jarlistp" refid="jarfiles"><mapper type="flatten" /></pathconvert>
+		<echo file="${openbd.src}/build/j2ee/webapp/WEB-INF/lib/openbd-std.list">${jarlistp}</echo>
+		<copy file="${openbd.src}/docs/ReleaseNotes.txt" todir="${desktoplibroot}"/>
+		<copy file="${openbd.src}/docs/ReleaseNotes.txt" todir="${openbd.src}/build/j2ee/webapp/WEB-INF/lib/"/>
+
+		<copy todir="${desktoplibroot}" flatten="true">
+			<fileset dir="${openbd.src}/build/j2ee/webapp/WEB-INF/lib/"><include name="**/*.jar" /><include name="openbd-std.list" /></fileset>
+		</copy>
+		<copy todir="${desktoplibroot}/bluedragon/">
+			<fileset dir="${openbd.src}/build/j2ee/webapp/bluedragon"><include name="**/*" /></fileset>
+		</copy>
+		<copy todir="${desktoplibroot}/manual/">
+			<fileset dir="${openbd.src}/build/j2ee/webapp/manual"><include name="**/*" /></fileset>
+		</copy>
+		
+		<!-- WEB-INF -->
+		<copy todir="${openbd.src}/build/j2ee/webapp/WEB-INF">
+			<fileset dir="${openbd.src}/webapp/WEB-INF">
+				<include name="*.wsdd"/>
+				<include name="web.xml"/>
+			</fileset>
+		</copy>
+
+		<!-- build WAR file -->
+		<zip destfile="${dist.war.file}" basedir="${openbd.src}/build/j2ee/webapp"/>
+
+	</target>
+
+	<!-- ================================================ -->
+	<!-- Javadoc generation                               -->
+	<!-- ================================================ -->
+
+	<target name="docs" depends="init">
+		<javadoc sourcepath="${src}"
+						packagenames="*"
+						destdir="${docs}"
+						author="true"
+						version="true"
+						use="true"
+						windowtitle="${ant.project.name} API"/>
+	</target>
+
+</project>

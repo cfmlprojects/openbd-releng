@@ -1,0 +1,146 @@
+<project name="openbdstandalone" default="openbd.standalone" basedir="." xmlns:antcontrib="antlib:net.sf.antcontrib">
+    
+	<description>Ant build file to build standalone version</description>
+
+	<!-- Load properties -->
+	<property file="build.properties"/>
+	
+    <target name="openbd.standalone" description="builds standalone.">
+		<set-build-info />
+    	<property name="openbd.standalone.zip.file" value="${dist.dir}/standalone/openbd-standalone-${openbd.build.version.long}.zip" />
+		<delete dir="${dist.dir}/openbd-standalone"/>
+		<copy todir="${dist.dir}/openbd-standalone/webroot/">
+			<fileset dir="${openbd.src}/webapp/" />
+		</copy>
+		<mkdir dir="${dist.dir}/openbd-standalone/webroot/WEB-INF/lib"/>
+		
+		<!-- custom icon for runwar -->
+		<copy file="${cfdistro.basedir}/lib/runwar.jar" todir="${dist.dir}/openbd-standalone/webroot/WEB-INF/lib" />
+        <copy file="${src.dir}/openbd/webapp/manual/images/logo.png" todir="${temp.dir}" />
+        <zip destfile="${dist.dir}/openbd-standalone/webroot/WEB-INF/lib/runwar.jar" update="true">
+        	<zipfileset file="${temp.dir}/logo.png" fullpath="runwar/icon.png" />
+        </zip>
+        <!--  create no asm jetty runner -->
+    	<jar jarfile="${dist.dir}/openbd-standalone/webroot/WEB-INF/lib/${jetty-runner.jar}">
+	        <zipfileset src="${cfdistro.basedir}/lib/${jetty-runner.jar}" excludes="org/objectweb/**" />
+	    </jar>
+
+    	<copy file="${dist.bluedragonjar.file}" todir="${dist.dir}/openbd-standalone/webroot/WEB-INF/lib/" />
+		<echo file="${dist.dir}/openbd-standalone/start"><![CDATA[#!/bin/sh
+if test -n "${JAVA_HOME}"; then
+if test -z "${JAVA_EXE}"; then
+JAVA_EXE=$JAVA_HOME/bin/java
+fi
+fi
+
+if test -z "${JAVA_EXE}"; then
+JAVA_EXE=java
+fi
+cd $(dirname $0)
+exec $JAVA_EXE -jar webroot/WEB-INF/lib/runwar.jar --war webroot --port 8888 --processname openbd --logdir . --background true --open-browser true --open-url /]]>
+</echo>
+		<echo file="${dist.dir}/openbd-standalone/start.bat"><![CDATA[
+java -jar webroot/WEB-INF/lib/runwar.jar --war webroot --port 8888 --processname openbd --logdir . --background true --open-browser true --open-url /]]>
+</echo>
+		<chmod file="${dist.dir}/openbd-standalone/start" perm="ugo+rx"/>
+		<echo file="${dist.dir}/openbd-standalone/start.bat"><![CDATA[java -jar %CD%\webroot\WEB-INF\lib\runwar.jar --war webroot --port 8888 --processname openbd --logdir . --background true --open-browser true --open-url /]]></echo>
+		<zip destfile="${openbd.standalone.zip.file}" update="false">
+			<zipfileset dir="${dist.dir}/openbd-standalone/" includes="start,stop" filemode="755" />
+			<zipfileset dir="${dist.dir}/openbd-standalone/" excludes="start,stop"/>
+		</zip>
+    </target>
+
+    <target name="openbd.standalone.winstone" description="builds standalone.">
+		<set-build-info />
+    	<property name="openbd.standalone.winstone.zip.file" value="${dist.dir}/standalone/openbd-standalone-winstone-${openbd.build.version.long}.zip" />
+    	<property name="winstone.version" value="0.9.10" />
+    	<property name="winstone.jar" value="winstone-${winstone.version}.jar" />
+    	<property name="winstone.ext.dir" value="${ext.dir}/winstone/"/>
+    	<property name="winstone.jar.path" value="${winstone.ext.dir}/${winstone.jar}" />
+    	<mkdir dir="${winstone.ext.dir}"/>
+        <dependency groupId="net.sourceforge.winstone"
+          artifactId="winstone-lite" type="jar" unzip="false"
+          version="${winstone.version}" dest="${winstone.ext.dir}"/>
+		<delete dir="${dist.dir}/openbd-standalone"/>
+		<copy todir="${dist.dir}/openbd-standalone/webroot/">
+			<fileset dir="${openbd.src}/webapp/" />
+		</copy>
+		<copy file="${winstone.jar.path}" todir="${dist.dir}/openbd-standalone/webroot/WEB-INF/lib" />
+    	<copy file="${dist.bluedragonjar.file}" todir="${dist.dir}/openbd-standalone/webroot/WEB-INF/lib/" />
+		<copy file="${src.dir}/openbd/lib/servlet23.jar" todir="${dist.dir}/openbd-standalone/webroot/WEB-INF/lib" />
+		<echo file="${dist.dir}/openbd-standalone/start"><![CDATA[#!/bin/sh
+if test -n "${JAVA_HOME}"; then
+if test -z "${JAVA_EXE}"; then
+JAVA_EXE=$JAVA_HOME/bin/java
+fi
+fi
+
+if test -z "${JAVA_EXE}"; then
+JAVA_EXE=java
+fi
+cd $(dirname $0)
+exec $JAVA_EXE -jar webroot/WEB-INF/lib/${winstone.jar} --webroot=./webroot --httpPort=8888]]>
+</echo>
+		<chmod file="${dist.dir}/openbd-standalone/start" perm="ugo+rx"/>
+		<echo file="${dist.dir}/openbd-standalone/start.bat"><![CDATA[java -javaagent:webroot/WEB-INF/lib/openbd-inst.jar -jar %CD%\webroot\WEB-INF\lib\${winstone.jar} --webroot=./webroot --httpPort=8888]]></echo>
+    	<!-- add dtd and xsd so no network connections are used -->
+    	<zip destfile="${dist.dir}/openbd-standalone/webroot/WEB-INF/lib/${winstone.jar}" update="true">
+			<zipfileset dir="${cfdistro.basedir}/dtd/" prefix="javax/servlet/resources/"/>
+		</zip>
+    	<zip destfile="${openbd.standalone.winstone.zip.file}" update="false">
+			<zipfileset dir="${dist.dir}/openbd-standalone/" includes="start,stop" filemode="755" />
+			<zipfileset dir="${dist.dir}/openbd-standalone/" excludes="start,stop"/>
+		</zip>
+    </target>	
+	
+    <target name="openbd.winstone" description="builds embedded with winstone">
+		<set-build-info />
+    	<property name="openbd.winstone.zip.file" value="${dist.dir}/standalone/openbd-winstone-${openbd.build.version.long}.zip" />
+    	<property name="winstone.version" value="0.9.10" />
+    	<property name="winstone.jar" value="winstone-lite-${winstone.version}.jar" />
+    	<property name="winstone.jar.path" value="${ext.dir}/winstone/${winstone.jar}" />
+    	<property name="winstone.ext.dir" value="${ext.dir}/winstone/"/>
+    	<mkdir dir="${winstone.ext.dir}"/>
+        <dependency groupId="net.sourceforge.winstone"
+          artifactId="winstone-lite" type="jar" unzip="false"
+          version="${winstone.version}" dest="${winstone.ext.dir}"/>
+		<delete dir="${dist.dir}/openbd-standalone"/>
+		<copy todir="${dist.dir}/openbd-standalone/webroot/">
+			<fileset dir="${openbd.src}/webapp/" />
+		</copy>
+    	<copy file="${dist.bluedragonjar.file}" todir="${dist.dir}/openbd-standalone/webroot/WEB-INF/lib/" />
+		<copy file="${src.dir}/openbd/lib/servlet23.jar" todir="${dist.dir}/openbd-standalone/webroot/WEB-INF/lib" />
+		<zip destfile="${temp.dir}/embedded.war" update="false">
+			<fileset dir="${dist.dir}/openbd-standalone/webroot/"/>
+		</zip>
+		<copy file="${winstone.jar.path}" tofile="${dist.dir}/openbd-standalone/openbd-winstone.jar" />
+		<zip destfile="${dist.dir}/openbd-standalone/openbd-winstone.jar" update="true">
+			<fileset file="${temp.dir}/embedded.war"/>
+		</zip>
+    	<!-- add dtd and xsd so no network connections are used -->
+    	<zip destfile="${dist.dir}/openbd-standalone/openbd-winstone.jar" update="true">
+			<zipfileset dir="${cfdistro.basedir}/dtd/" prefix="javax/servlet/resources/"/>
+		</zip>
+    	<echo file="${dist.dir}/openbd-standalone/start"><![CDATA[#!/bin/sh
+if test -n "${JAVA_HOME}"; then
+if test -z "${JAVA_EXE}"; then
+JAVA_EXE=$JAVA_HOME/bin/java
+fi
+fi
+
+if test -z "${JAVA_EXE}"; then
+JAVA_EXE=java
+fi
+cd $(dirname $0)
+exec $JAVA_EXE -jar openbd-winstone.jar --httpPort=8888]]>
+</echo>
+		<chmod file="${dist.dir}/openbd-standalone/start" perm="ugo+rx"/>
+		<echo file="${dist.dir}/openbd-standalone/start.bat"><![CDATA[java -jar %CD%\openbd-winstone.jar --httpPort=8888]]></echo>
+		<delete dir="${dist.dir}/openbd-standalone/webroot/"/>
+		<zip destfile="${openbd.winstone.zip.file}" update="false">
+			<zipfileset dir="${dist.dir}/openbd-standalone/" includes="start,stop" filemode="755" />
+			<zipfileset dir="${dist.dir}/openbd-standalone/" excludes="start,stop"/>
+		</zip>
+    </target>
+	
+</project>

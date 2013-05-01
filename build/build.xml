@@ -1,0 +1,24 @@
+<project name="distro.build" default="build" basedir="./" xmlns:antcontrib="antlib:net.sf.antcontrib">
+
+	<loadproperties srcfile="build.properties"/>
+	<import file="${cfdistro.build.file}"/>
+	<import file="build-openbd.xml"/>
+	<import file="build-desktop.xml"/>
+	<import file="build-standalone.xml"/>
+	<import file="build-maven.xml"/>
+
+	<target name="buildwar" depends="cfdistro.build">
+	</target>	
+
+	<target name="build.release" depends="cfadapterjar, war, desktop.dist, openbd.standalone, openbd.standalone.winstone, openbd.winstone, openbd.mvn.all">
+	</target>	
+
+	<macrodef name="set-build-info">
+		<sequential>
+			<property name="openbd.build.bump" value=""/>
+			<property file="${src.dir}/openbd/src/openbd.properties" prefix="openbd"/>
+			<version-splitter property="openbd.build.version" version="${openbd.version}" bump="${openbd.build.bump}"/>
+		</sequential>
+	</macrodef>
+
+</project>

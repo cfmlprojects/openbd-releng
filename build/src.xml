@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<src>
+	<project>
+		<src dest="@src.dir@/openbd" type="svn" 
+		uri="svn://svn.openbluedragon.org/openbd/trunk" 
+		user="" password="" />
+		<src dest="@src.dir@/desktop" type="svn" 
+		uri="svn://svn.openbluedragon.org/openbd/branches/desktop" 
+		user="" password="" />
+	</project>
+	<sources>
+	</sources>
+</src>

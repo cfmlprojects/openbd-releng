@@ -1,0 +1,170 @@
+<project name="build-maven" default="openbd.mvn.core" xmlns:antcontrib="antlib:net.sf.antcontrib" xmlns:artifact="antlib:org.apache.maven.artifact.ant" basedir=".">
+
+   	<!-- 
+   	<property name="mvn.type" value="snapshot" />
+   	-->
+	<property name="openbd.deps.exclude" value="OpenBlueDragon.jar, javax.servlet.jar, org.mortbay.jetty.jar" />
+	<property name="openbd.deps.optional" value="ojdbc14.jar, jtds-*.jar, h2*.jar, mysql-connector*.jar, postgresql*.jar" />
+
+	<property name="mvn.type" value="release" />
+    <property name="mvn.repo.dest" value="local" />
+    <property name="mvn.repo.dest" value="remote" />
+    <property name="mvn.repo.id" value="mvn.repo.${mvn.repo.dest}" />
+    <property name="maven.repo.local" location="${cfdistro.basedir}/artifacts" />
+
+	<import file="${cfdistro.basedir}/maven.xml" />
+
+	<mvn-repo id="mvn.repo.local" url="file://${maven.repo.local}/" />
+
+	<!-- if we decide we want to do snapshots and whatnot.
+	<mvn-repo id="mvn.repo.local" url="file://${maven.repo.local}/${mvn.type}/">
+		<enablement>
+			<releases enabled="false" updatePolicy="always" />
+			<snapshots enabled="true" updatePolicy="never" checksumPolicy="fail" />
+		</enablement>
+	</mvn-repo>
+ 	-->
+       	
+  	<property name="mvn.remote.repo" 
+   		value="http://127.0.0.1:8081/nexus/content/repositories/openbd-${mvn.type}s/" />
+
+    <target name="openbd.mvn.libs" xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+		<set-build-info />
+		<!-- wrap all the libs up into one dependency -->
+		<zip destfile="${temp.dir}/openbd-libs.zip" update="true">
+			<fileset dir="${src.dir}/openbd/webapp/WEB-INF/lib" excludes="${openbd.deps.exclude}" />
+		</zip>
+		<pom-and-deploy pomid="openbdlibs.pom" artifact="${temp.dir}/openbd-libs.zip" packaging="zip" buildtype="${mvn.type}"
+		 groupId="org.openbd" artifactId="openbd.libs" version="${openbd.build.version.major}.0" name="openbd.libs" />
+		<delete file="${temp.dir}/openbd-libs.zip" />
+		<!-- and what the hell, try adding all under one dependency -->
+		<property name="libsxml" value="" />
+		<property name="depsxml" value="" />
+		<antcontrib:for param="file">
+			<path>
+				<fileset dir="${src.dir}/openbd/webapp/WEB-INF/lib" excludes="${openbd.deps.exclude},${openbd.deps.optional}" includes="*.jar" />
+			</path>
+			<sequential>
+				<antcontrib:var name="basename" unset="true" />
+				<basename file="@{file}" property="basename" suffix=".jar" />
+				<antcontrib:propertyregex 
+				property="basename" 
+				input="${basename}" 
+				global="true" override="yes" 
+				regexp="\." 
+				replace="-"/>
+				<echo message="${basename}"/>
+				<antcontrib:var name="libsxml"
+					value='${libsxml}&lt;attach file="@{file}" classifier="${basename}" type="jar"/&gt;${line.separator}' />
+				<antcontrib:var name="depsxml"
+					value='${depsxml}&lt;dependency groupId="org.openbd" artifactId="openbd.dep" version="${openbd.build.version.major}.0" classifier="${basename}"/&gt;${line.separator}' />
+			</sequential>
+		</antcontrib:for>
+    	<!-- add optional libs -->
+		<antcontrib:for param="file">
+			<path>
+				<fileset dir="${src.dir}/openbd/webapp/WEB-INF/lib" excludes="${openbd.deps.exclude}" includes="${openbd.deps.optional}" />
+			</path>
+			<sequential>
+				<antcontrib:var name="basename" unset="true" />
+				<basename file="@{file}" property="basename" suffix=".jar" />
+				<antcontrib:propertyregex 
+				property="basename" 
+				input="${basename}" 
+				global="true" override="yes" 
+				regexp="\." 
+				replace="-"/>
+				<echo message="${basename}"/>
+				<antcontrib:var name="libsxml"
+					value='${libsxml}&lt;attach file="@{file}" classifier="${basename}" type="jar"/&gt;${line.separator}' />
+				<antcontrib:var name="depsxml"
+					value='${depsxml}&lt;dependency groupId="org.openbd" artifactId="openbd.dep" version="${openbd.build.version.major}.0" classifier="${basename}" optional="true"/&gt;${line.separator}' />
+			</sequential>
+		</antcontrib:for>
+		<echo file="${basedir}/build-mvnlibs.xml"><![CDATA[<project><import file="${basedir}/build.xml"/>
+		<target name="libsxml.pom"><pom-and-deploy pomid="openbd.dep.pom" packaging="pom" buildtype="${mvn.type}"
+	 		groupId="org.openbd" artifactId="openbd.dep" version="${openbd.build.version.major}.0" name="openbd.dep">
+       		<attachments>${libsxml}</attachments></pom-and-deploy>
+       		<pom-and-deploy pomid="openbd" artifact="${dist.bluedragonjar.file}" packaging="jar" buildtype="${mvn.type}"
+	 		groupId="org.openbd" artifactId="openbd" version="${openbd.build.version.long}" name="openbd">
+       		<dependencies>${depsxml}</dependencies></pom-and-deploy>
+       		</target></project>]]></echo>
+		<ant antfile="${basedir}/build-mvnlibs.xml" inheritAll="true" target="libsxml.pom" />
+    	<delete file="${basedir}/build-mvnlibs.xml"/>
+	</target>
+
+
+    <target name="openbd.mvn.all" depends="openbd.mvn.war, openbd.mvn.desktop, openbd.mvn.standalone" xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+	</target>
+
+    <target name="openbd.mvn.war" depends="openbd.mvn.libs, openbd.mvn.core" xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+		<pom-and-deploy pomid="openbd.war.pom" packaging="war" artifact="${dist.war.file}" buildtype="${mvn.type}"
+		 groupId="org.openbd" artifactId="openbd.war" version="${openbd.build.version.long}" name="openbd.war"/>
+	</target>
+
+    <target name="openbd.mvn.desktop" depends="openbd.mvn.libs, openbd.mvn.core" xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+		<pom-and-deploy pomid="openbd.desktop.pom" packaging="zip" artifact="${dist.desktopzip.file}" buildtype="${mvn.type}"
+		 groupId="org.openbd" artifactId="desktop" version="${openbd.build.version.long}" name="openbd.desktop"/>
+
+    	<pom-and-deploy pomid="openbd.standalone.winstone.pom" packaging="zip" artifact="${dist.dir}/standalone/openbd-standalone-winstone-${openbd.build.version.long}.zip" buildtype="${mvn.type}"
+		 groupId="org.openbd" artifactId="openbd.standalone.winstone" version="${openbd.build.version.long}" name="openbd.standalone.winstone"/>
+	</target>
+
+    <target name="openbd.mvn.standalone" depends="openbd.mvn.libs,openbd.mvn.core" xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+    	<pom-and-deploy pomid="openbd.standalone.pom" packaging="zip" artifact="${openbd.standalone.zip.file}" buildtype="${mvn.type}"
+		 groupId="org.openbd" artifactId="openbd.standalone" version="${openbd.build.version.long}" name="openbd.standalone"/>
+
+    	<pom-and-deploy pomid="openbd.standalone.winstone.pom" packaging="zip" artifact="${openbd.standalone.winstone.zip.file}" buildtype="${mvn.type}"
+		 groupId="org.openbd" artifactId="openbd.standalone.winstone" version="${openbd.build.version.long}" name="openbd.standalone.winstone"/>
+
+    	<pom-and-deploy pomid="openbd.winstone.pom" packaging="zip" artifact="${openbd.winstone.zip.file}" buildtype="${mvn.type}"
+		 groupId="org.openbd" artifactId="openbd.winstone" version="${openbd.build.version.long}" name="openbd.winstone"/>
+    </target>
+
+	<target name="openbd.mvn.core" xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+		<set-build-info />
+		<property name="dist.bluedragonjar.file" value="${dest}/${bluedragonjar}"/>
+		<property name="dist.appletjar.file" value="${dest}/${appletjar}"/>
+		<property name="dist.cfadapterjar.file" value="${dest}/${cfadapterjar}/"/>
+		<property name="dist.war.file" location="${openbd.src}/build/j2ee/openbd.war"/>
+
+		<!-- deploy the openbd.jar file (openbd.core) -->
+		<pom-and-deploy pomid="openbd.jar.pom" packaging="jar" artifact="${dist.bluedragonjar.file}" buildtype="${mvn.type}"
+		 groupId="org.openbd" artifactId="openbd-jar" version="${openbd.build.version.long}" name="openbd-jar" />
+
+		<pom-and-deploy pomid="openbd.jar.pom" packaging="jar" artifact="${dist.appletjar.file}" buildtype="${mvn.type}"
+		 groupId="org.openbd" artifactId="openbd-applet" version="${openbd.build.version.long}" name="openbd-applet" />
+
+		<pom-and-deploy pomid="openbd.jar.pom" packaging="jar" artifact="${dist.bluedragonjar.file}" buildtype="${mvn.type}"
+		 groupId="org.openbd" artifactId="openbd-cfadapter" version="${openbd.build.version.long}" name="openbd-cfadapter" />
+
+		<!-- deploy the openbd archtype-ish projects -->
+
+		<copy toDir="${temp.dir}" overwrite="true">
+			<fileset dir="${basedir}/resource/maven/" includes="*.pom" />
+			<filterchain><expandproperties /></filterchain>
+		</copy>
+		<pom-and-deploy pomid="openbd.pomparent.pom" file="${temp.dir}/openbd.pomparent.pom"  packaging="pom" buildtype="${mvn.type}"
+			artifact="${dist.bluedragonjar.file}"/>
+		
+		<pom-and-deploy pomid="rail.pomparent.libs.pom" file="${temp.dir}/openbd.pomparent.libs.pom"  packaging="pom" buildtype="${mvn.type}"
+			artifact="${dist.bluedragonjar.file}"/>
+		
+		<pom-and-deploy pomid="openbd.pomparent.war.pom" file="${temp.dir}/openbd.pomparent.war.pom" buildtype="${mvn.type}"
+		  artifact="${dist.bluedragonjar.file}" packaging="pom" />
+
+		<pom-and-deploy pomid="openbd.pomparent.jetty.pom" file="${temp.dir}/openbd.pomparent.jetty.pom" packaging="pom"
+			artifact="${dist.bluedragonjar.file}" buildtype="${mvn.type}" />
+
+		<pom-and-deploy pomid="openbd.pomparent.winstone.pom" file="${temp.dir}/openbd.pomparent.winstone.pom" packaging="pom"
+			artifact="${dist.bluedragonjar.file}" buildtype="${mvn.type}" />
+
+		<pom-and-deploy pomid="openbd.pomparent.heroku.jetty.pom" file="${temp.dir}/openbd.pomparent.heroku.jetty.pom" packaging="pom"
+			artifact="${dist.bluedragonjar.file}" buildtype="${mvn.type}" />
+	
+		<pom-and-deploy pomid="openbd.pomparent.heroku.winstone.pom" file="${temp.dir}/openbd.pomparent.heroku.winstone.pom" packaging="pom"
+			artifact="${dist.bluedragonjar.file}" buildtype="${mvn.type}" />
+	
+	</target>
+
+</project>

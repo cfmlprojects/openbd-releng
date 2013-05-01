@@ -1,0 +1,129 @@
+<!--
+ *  Copyright (C) 2000 - 2012 TagServlet Ltd
+ *
+ *  This file is part of Open BlueDragon (OpenBD) CFML Server Engine.
+ *  
+ *  OpenBD is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  Free Software Foundation,version 3.
+ *  
+ *  OpenBD is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  You should have received a copy of the GNU General Public License
+ *  along with OpenBD.  If not, see http://www.gnu.org/licenses/
+ *  
+ *  Additional permission under GNU GPL version 3 section 7
+ *  
+ *  If you modify this Program, or any covered work, by linking or combining 
+ *  it with any of the JARS listed in the README.txt (or a modified version of 
+ *  (that library), containing parts covered by the terms of that JAR, the 
+ *  licensors of this Program grant you additional permission to convey the 
+ *  resulting work. 
+ *  README.txt @ http://www.openbluedragon.org/license/README.txt
+ *  
+ *  http://www.openbd.org/
+ *  $Id: build.xml 1958 2012-02-21 03:41:17Z alan $
+ -->
+
+<project name="OpenBDDesktop" default="desktop.compile" basedir="..">
+	<property name="desktoplibroot" location="${temp.dir}/openbdBuild/openbd-desktop-lib"/>
+	<property name="desktop.dir" 			location="${src.dir}/desktop"/>
+	<property name="desktop.src" 			location="${desktop.dir}/src"/>
+	<property name="desktop.lib" 			location="${desktop.dir}/lib/"/>
+	<property name="desktop.dist" 			location="${desktop.dir}/build/dist/"/>
+	<property name="desktop.classes" 		location="${desktop.dir}/build/classes/"/>
+
+	<property name="desktopjar" 	value="OpenBlueDragonDesktop.jar"/>
+	
+	<property name="dist.desktopjar.file" 	value="${desktop.dist}/lib/${desktopjar}"/>
+	<property name="dist.desktopzip.file" 	value="${dist.dir}/OpenBlueDragonDesktop.zip"/>
+	
+	<path id="desktop.class.path">
+		<pathelement location="${desktop.lib}/jetty-all-7.6.1.v20120215.jar"/>
+		<pathelement location="${desktop.lib}/servlet-api-2.5.jar"/>
+	</path>
+		
+	
+	<target name="desktop.init" description="Initialisation">
+		<tstamp/>
+		<delete dir="${desktop.classes}"/>
+		<mkdir dir="${desktop.classes}"/>
+		<mkdir dir="${desktop.dist}"/>
+		<mkdir dir="${desktop.dist}/lib/"/>
+		<mkdir dir="${desktop.dist}/docs"/>
+		<mkdir dir="${desktop.dist}/openbd"/>
+	</target>
+
+	
+	<!-- ================================================ -->
+	<!-- COMPILING                                        -->
+	<!-- ================================================ -->
+	<target name="desktop.compile" depends="desktop.init">
+	    <javac-ecj 
+	    	srcdir="${desktop.src}"
+			destdir="${desktop.classes}"
+			classpath="${toString:desktop.class.path}"
+		/>
+	</target>
+
+	
+	<!-- ================================================ -->
+	<!-- JAR FILE CREATION                                -->
+	<!-- ================================================ -->
+	<target name="desktop.jar" description="Desktop Jar" depends="desktop.compile">
+		<echo message="Creating JAR: ${desktopjar}"/>
+
+		<manifest file="desktopmanifest.mf">
+			<attribute name="build-name" value="OpenBlueDragonDesktop"/>
+			<attribute name="Main-Class" value="com.bluedragon.desktop.Desktop"/>
+		</manifest>
+
+		<copy todir="${desktop.classes}/com/bluedragon/desktop/" verbose="false">
+			<fileset dir="${desktop.src}/com/bluedragon/desktop/" includes="*.png"/>
+		</copy>
+		
+		<copy todir="${desktop.classes}/com/bluedragon/desktop/jetty/" verbose="false">
+			<fileset dir="${desktop.src}/com/bluedragon/desktop/jetty/" includes="*.xml"/>
+			<fileset dir="${desktop.src}/com/bluedragon/desktop/jetty/" includes="*.cfc"/>
+		</copy>
+		
+		<jar 	jarfile="${dist.desktopjar.file}"
+					manifest="desktopmanifest.mf"
+					filesonly="true"
+					compress="true">
+    		<fileset dir="${desktop.classes}"/>
+		</jar>
+
+		<delete file="desktopmanifest.mf"/>
+	</target>
+
+	
+	<!-- ================================================ -->
+	<!-- Runtime  CREATION                                -->
+	<!-- ================================================ -->
+	
+	<target name="desktop.dist" description="Distribution" depends="desktop.jar">
+	
+		<copy todir="${desktop.dist}/lib">
+			<fileset dir="${desktop.lib}" />
+		</copy>
+	
+		<copy todir="${desktop.dist}/docs">
+			<fileset dir="${desktop.dir}/docs" />
+		</copy>
+				
+		<copy todir="${desktop.dist}/">
+			<fileset dir="${desktop.dir}/sbin" />
+		</copy>
+				
+		<copy todir="${desktop.dist}/openbd">
+			<fileset dir="${desktoplibroot}" />
+		</copy>
+	
+		<zip destfile="${dist.desktopzip.file}" basedir="${desktop.dist}"/>
+	</target>
+
+</project>
